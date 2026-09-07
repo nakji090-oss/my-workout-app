@@ -50,6 +50,15 @@
 
         .loading-screen { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .text-accent { color: var(--text-accent) !important; }
+
+        /* 🚨 오늘 요일 완벽 하이라이트 CSS */
+        .today-row td {
+            background-color: var(--nav-active-bg) !important;
+            border-top: 2px solid var(--text-accent) !important;
+            border-bottom: 2px solid var(--text-accent) !important;
+        }
+        .today-row td:first-child { border-left: 2px solid var(--text-accent) !important; }
+        .today-row td:last-child { border-right: 2px solid var(--text-accent) !important; }
     </style>
 </head>
 <body>
@@ -75,7 +84,7 @@
             <div class="alert small mb-3 py-2 fw-bold" :class="isDark ? 'alert-dark' : 'alert-info'">💡 각 칸마다 최대 2개씩 운동을 고른 뒤, 맨 아래 [저장하기] 버튼을 꼭 눌러주세요.</div>
             
             <div class="table-responsive">
-                <table class="table table-bordered routine-table mb-0">
+                <table class="table table-bordered routine-table mb-0" style="border-collapse: collapse;">
                     <thead>
                         <tr class="text-accent fw-bold bg-body-tertiary">
                             <th width="15%">요일</th>
@@ -84,8 +93,13 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="(rt, index) in routineData" :key="index">
-                            <td class="fw-bold" :class="{'text-danger': rt.day==='일', 'text-info': rt.day==='토'}">{{ rt.day }}</td>
+                        <!-- 🚨 오늘 요일이면 'today-row' 클래스가 붙어서 화려하게 강조됨 -->
+                        <tr v-for="(rt, index) in routineData" :key="index" :class="{'today-row': rt.day === currentDayName}">
+                            <td class="fw-bold align-middle" :class="{'text-danger': rt.day==='일' && rt.day !== currentDayName, 'text-info': rt.day==='토' && rt.day !== currentDayName, 'text-accent fs-5': rt.day === currentDayName}">
+                                {{ rt.day }}
+                                <!-- 오늘 전용 뱃지 -->
+                                <span v-if="rt.day === currentDayName" class="badge d-block mt-1 mx-auto text-white shadow-sm" style="background-color: var(--text-accent); font-size: 10.5px; padding: 4px 6px; width: fit-content;">오늘</span>
+                            </td>
                             <td>
                                 <select v-model="rt.morning1" class="form-select routine-select w-100">
                                     <option v-for="w in workoutList" :value="w">{{w}}</option>
@@ -174,7 +188,6 @@
             <h5 class="fw-bold mb-3">📈 나의 주간 성장 그래프</h5>
             <div class="alert small mb-3 py-2 fw-bold" :class="isDark ? 'alert-dark' : 'alert-info'">💡 보고 싶은 운동을 선택하면, 최근 4주간(월~일 기준)의 성장 추이를 맞춤형으로 보여줍니다.</div>
             
-            <!-- 🚨 종목 선택 드롭다운 (아이디어 1 적용) -->
             <select v-model="selectedStatWorkout" @change="drawCharts" class="form-select fs-6 mb-4 fw-bold" style="color: var(--text-accent); border-color: var(--text-accent);">
                 <option value="전체 유산소">🏃 전체 유산소 (시간 합산)</option>
                 <optgroup label="💪 개별 종목 기록보기">
@@ -182,7 +195,6 @@
                 </optgroup>
             </select>
             
-            <!-- 🚨 통합된 단일 차트 영역 -->
             <div id="workoutChart" style="height: 280px; margin-bottom: 20px;"></div>
             
             <hr class="border-secondary my-4">
@@ -270,6 +282,9 @@
 </div>
 
 <script>
+// =========================================================================
+// 🚨 스크립트 연결 주소
+// =========================================================================
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxEWDpDN8wApIJlRf_SzoJUS2dI-Dh9RGHXjQuSQcCcXFh9ivaH16ydHyXIjoLZXLg/exec";
 
 const app = Vue.createApp({
@@ -280,7 +295,6 @@ const app = Vue.createApp({
             currentTab: 'record',
             records: [],
             
-            // 🚨 차트 종목 선택용 변수 추가
             selectedStatWorkout: '전체 유산소',
             
             workoutList: ['슬로우 조깅', '스쿼트', '신디', '실내자전거', '슬로우 버피'],
@@ -310,6 +324,11 @@ const app = Vue.createApp({
         }
     },
     computed: {
+        // 💡 오늘 요일을 한글로 반환하는 기능 (예: '수')
+        currentDayName() {
+            const days = ['일', '월', '화', '수', '목', '금', '토'];
+            return days[new Date().getDay()];
+        },
         formattedTime() {
             let totalSeconds = Math.floor(this.timerTime / 1000);
             let m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
@@ -552,10 +571,9 @@ const app = Vue.createApp({
                 wEnd.setHours(23, 59, 59, 999);
                 
                 let label = `${wStart.getMonth()+1}/${wStart.getDate()}~${wEnd.getMonth()+1}/${wEnd.getDate()}`;
-                weeks.push({ label: label, start: wStart, end: wEnd });
+                weeks.push({ label: label, start: wStart, end: wEnd, cardioTotal: 0, strengthTotal: 0 });
             }
 
-            // 🚨 선택한 운동에 따라 데이터 분기 처리 (아이디어 1)
             let yValues = [];
             let isCardioView = false;
             let unitLabel = '';
@@ -564,7 +582,7 @@ const app = Vue.createApp({
             if (this.selectedStatWorkout === '전체 유산소') {
                 isCardioView = true;
                 unitLabel = '분';
-                barColor = '#3b82f6'; // 파란색
+                barColor = '#3b82f6'; 
                 
                 yValues = weeks.map(w => {
                     return this.records.filter(r => {
@@ -576,7 +594,7 @@ const app = Vue.createApp({
                 let isCardio = this.isCardioWorkout(this.selectedStatWorkout);
                 isCardioView = isCardio;
                 unitLabel = isCardio ? '분' : '회';
-                barColor = isCardio ? '#3b82f6' : (this.isDark ? '#2dd4bf' : '#0d9488'); // 유산소면 파랑, 근력이면 청록
+                barColor = isCardio ? '#3b82f6' : (this.isDark ? '#2dd4bf' : '#0d9488'); 
                 
                 yValues = weeks.map(w => {
                     return this.records.filter(r => {
