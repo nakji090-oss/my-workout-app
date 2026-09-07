@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>운동 기록 앱</title>
-    <!-- 🚨 상단 상태표시줄 색상 (라이트/다크 동적 변경) -->
+    <!-- 상단 상태표시줄 색상 -->
     <meta name="theme-color" id="theme-color-meta" content="#2dd4bf">
     
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2964/2964514.png">
@@ -17,26 +17,16 @@
     
     <style>
         :root {
-            --app-bg: #f3f4f6; 
-            --nav-bg: #ffffff; 
-            --card-bg: #ffffff;
-            --text-main: #1f2937; 
-            --text-accent: #0d9488; /* 라이트모드: 깊은 청록색 */
-            --nav-active-bg: #f0fdfa; 
-            --table-border: #e5e7eb;
-            --input-bg: #ffffff;
-            --input-border: #d1d5db;
+            --app-bg: #f3f4f6; --nav-bg: #ffffff; --card-bg: #ffffff;
+            --text-main: #1f2937; --text-accent: #0d9488; 
+            --nav-active-bg: #f0fdfa; --table-border: #e5e7eb;
+            --input-bg: #ffffff; --input-border: #d1d5db;
         }
         [data-bs-theme="dark"] {
-            --app-bg: #121212; 
-            --nav-bg: #1e1e1e; 
-            --card-bg: #1e1e1e;
-            --text-main: #f8f9fa; 
-            --text-accent: #2dd4bf; /* 다크모드: 밝은 민트/청록색 */
-            --nav-active-bg: #2d2d2d; 
-            --table-border: #374151;
-            --input-bg: #2d2d2d;
-            --input-border: #444444;
+            --app-bg: #121212; --nav-bg: #1e1e1e; --card-bg: #1e1e1e;
+            --text-main: #f8f9fa; --text-accent: #2dd4bf; 
+            --nav-active-bg: #2d2d2d; --table-border: #374151;
+            --input-bg: #2d2d2d; --input-border: #444444;
         }
 
         body { background-color: var(--app-bg); color: var(--text-main); font-family: 'Pretendard', sans-serif; padding-bottom: 80px; padding-top: 15px; transition: background-color 0.3s, color 0.3s; }
@@ -53,7 +43,7 @@
         .routine-table th, .routine-table td { text-align: center; vertical-align: middle; padding: 10px 5px; border-color: var(--table-border); font-size: 14px;}
         
         .form-control, .form-select { background-color: var(--input-bg); color: var(--text-main); border: 1px solid var(--input-border); border-radius: 10px; font-size: 16px; padding: 10px 12px; transition: 0.3s; }
-        .form-control:focus, .form-select:focus { background-color: var(--input-bg); color: var(--text-main); border-color: var(--text-accent); box-shadow: 0 0 0 0.2rem rgba(45, 212, 191, 0.25); }
+        .form-control:focus, .form-select:focus { background-color: var(--input-bg); border-color: var(--text-accent); box-shadow: 0 0 0 0.2rem rgba(45, 212, 191, 0.25); }
         
         .routine-select { background-color: transparent; border: 1px solid var(--input-border); color: var(--text-main); font-size: 13.5px; padding: 4px; text-align: center; font-weight: bold; border-radius: 6px; margin-bottom: 4px;}
         .routine-select:focus { background-color: var(--input-bg); }
@@ -70,7 +60,7 @@
         <h5 class="mt-3 fw-bold text-accent">데이터 동기화 중...</h5>
     </div>
 
-    <!-- 🌙 상단 다크모드 스위치 및 헤더 -->
+    <!-- 🌙 상단 헤더 -->
     <div class="d-flex justify-content-between align-items-center mb-3 px-2 mt-2">
         <h3 class="fw-bold mb-0" style="color: var(--text-main);">🏃 피트니스 다이어리</h3>
         <button @click="toggleDarkMode" class="btn btn-sm btn-outline-secondary rounded-pill fw-bold fs-5 px-3">
@@ -82,10 +72,10 @@
     <div v-show="currentTab === 'routine'">
         <div class="card p-3">
             <h5 class="fw-bold mb-3">🗓️ 1주일 운동 루틴</h5>
-            <div class="alert small mb-3 py-2 fw-bold" :class="isDark ? 'alert-dark' : 'alert-info'">💡 각 칸마다 최대 2개씩 운동을 고를 수 있습니다.</div>
+            <div class="alert small mb-3 py-2 fw-bold" :class="isDark ? 'alert-dark' : 'alert-info'">💡 각 칸마다 최대 2개씩 운동을 고른 뒤, 맨 아래 [저장하기] 버튼을 꼭 눌러주세요.</div>
             
             <div class="table-responsive">
-                <table class="table table-bordered routine-table">
+                <table class="table table-bordered routine-table mb-0">
                     <thead>
                         <tr class="text-accent fw-bold bg-body-tertiary">
                             <th width="15%">요일</th>
@@ -97,25 +87,21 @@
                         <tr v-for="(rt, index) in routineData" :key="index">
                             <td class="fw-bold" :class="{'text-danger': rt.day==='일', 'text-info': rt.day==='토'}">{{ rt.day }}</td>
                             <td>
-                                <!-- 아침 1번 운동 -->
-                                <select v-model="rt.morning1" @change="saveRoutine" class="form-select routine-select w-100">
+                                <select v-model="rt.morning1" class="form-select routine-select w-100">
                                     <option v-for="w in workoutList" :value="w">{{w}}</option>
                                     <option value="휴식" class="text-secondary">휴식(없음)</option>
                                 </select>
-                                <!-- 아침 2번 운동 -->
-                                <select v-model="rt.morning2" @change="saveRoutine" class="form-select routine-select w-100 mb-0">
+                                <select v-model="rt.morning2" class="form-select routine-select w-100 mb-0">
                                     <option v-for="w in workoutList" :value="w">{{w}}</option>
                                     <option value="휴식" class="text-secondary">휴식(없음)</option>
                                 </select>
                             </td>
                             <td>
-                                <!-- 저녁 1번 운동 -->
-                                <select v-model="rt.evening1" @change="saveRoutine" class="form-select routine-select w-100">
+                                <select v-model="rt.evening1" class="form-select routine-select w-100">
                                     <option v-for="w in workoutList" :value="w">{{w}}</option>
                                     <option value="휴식" class="text-secondary">휴식(없음)</option>
                                 </select>
-                                <!-- 저녁 2번 운동 -->
-                                <select v-model="rt.evening2" @change="saveRoutine" class="form-select routine-select w-100 mb-0">
+                                <select v-model="rt.evening2" class="form-select routine-select w-100 mb-0">
                                     <option v-for="w in workoutList" :value="w">{{w}}</option>
                                     <option value="휴식" class="text-secondary">휴식(없음)</option>
                                 </select>
@@ -124,11 +110,17 @@
                     </tbody>
                 </table>
             </div>
+            
+            <!-- 🚨 루틴표 수동 저장 버튼 추가 -->
+            <div class="mt-3 text-end">
+                <button @click="saveRoutine" class="btn btn-primary w-100 py-3 fs-5 rounded-3 shadow-sm fw-bold">💾 루틴표 저장하기</button>
+            </div>
         </div>
     </div>
 
     <!-- 2. 기록 탭 -->
     <div v-show="currentTab === 'record'">
+        <!-- 타이머 (유산소 운동 시 특히 유용) -->
         <div class="card p-4 text-center">
             <h6 class="fw-bold text-secondary mb-0">⏱️ 워크아웃 스톱워치</h6>
             <div class="timer-display my-2">{{ formattedTime }}</div>
@@ -150,24 +142,29 @@
                 <div class="row mb-3">
                     <div class="col-12 mb-3">
                         <label class="form-label text-secondary small fw-bold">어떤 운동을 하셨나요?</label>
-                        <select v-model="form.workout" class="form-select fs-5 fw-bold" required>
+                        <select v-model="form.workout" class="form-select fs-5 fw-bold text-accent" required>
                             <option value="" disabled>설정 탭에 등록된 운동을 고르세요</option>
                             <option v-for="w in workoutList" :value="w">{{ w }}</option>
                         </select>
                     </div>
-                    <div class="col-6">
+
+                    <!-- 🔥 유산소 운동을 골랐을 때만 나타나는 구역 (전체 폭 사용) -->
+                    <div class="col-12 mb-2" v-if="form.workout && isCardioWorkout(form.workout)">
                         <label class="form-label text-secondary small fw-bold">수행 시간 (분)</label>
                         <div class="input-group">
-                            <input type="number" v-model="form.duration" class="form-control" placeholder="예: 20">
-                            <button type="button" @click="copyTimerToDuration" class="btn btn-outline-info px-2 fs-5" title="타이머 가져오기">⏱️</button>
+                            <input type="number" v-model="form.duration" class="form-control fw-bold" placeholder="몇 분 하셨나요? (예: 30)" required>
+                            <button type="button" @click="copyTimerToDuration" class="btn btn-outline-info px-3 fs-5 fw-bold" title="타이머 시간 가져오기">⏱️ 타이머 입력</button>
                         </div>
                     </div>
-                    <div class="col-6">
-                        <label class="form-label text-secondary small fw-bold">횟수 / 세트</label>
-                        <input type="text" v-model="form.reps" class="form-control" placeholder="예: 100개, 5R">
+
+                    <!-- 🔥 근력/무산소 운동을 골랐을 때만 나타나는 구역 (전체 폭 사용) -->
+                    <div class="col-12 mb-2" v-if="form.workout && !isCardioWorkout(form.workout)">
+                        <label class="form-label text-secondary small fw-bold">횟수 / 라운드 / 세트</label>
+                        <input type="text" v-model="form.reps" class="form-control fw-bold" placeholder="몇 개 하셨나요? (예: 100개, 5R)" required>
                     </div>
                 </div>
-                <div class="mb-4">
+
+                <div class="mb-4 mt-2">
                     <label class="form-label text-secondary small fw-bold">메모 / 컨디션</label>
                     <input type="text" v-model="form.memo" class="form-control" placeholder="예: 오운완! 가뿐하다">
                 </div>
@@ -201,7 +198,7 @@
                         <tr v-for="r in sortedRecords" :key="r.id">
                             
                             <!-- ✏️ 인라인 에디터 (수정 화면) -->
-                            <td colspan="4" v-if="editingRecordId === r.id" class="bg-body-tertiary p-2 border rounded">
+                            <td colspan="4" v-if="editingRecordId === r.id" class="bg-body-tertiary p-3 border rounded">
                                 <div class="row g-2">
                                     <div class="col-6"><input type="date" v-model="editForm.date" class="form-control form-control-sm"></div>
                                     <div class="col-6">
@@ -209,10 +206,17 @@
                                             <option v-for="w in workoutList" :value="w">{{w}}</option>
                                         </select>
                                     </div>
-                                    <div class="col-6"><input type="number" v-model="editForm.duration" class="form-control form-control-sm" placeholder="시간(분)"></div>
-                                    <div class="col-6"><input type="text" v-model="editForm.reps" class="form-control form-control-sm" placeholder="횟수/세트"></div>
+                                    
+                                    <!-- 수정 시에도 운동 종류에 맞춰 하나만 보이게 처리 -->
+                                    <div class="col-12" v-if="isCardioWorkout(editForm.workout)">
+                                        <input type="number" v-model="editForm.duration" class="form-control form-control-sm" placeholder="수행 시간(분)">
+                                    </div>
+                                    <div class="col-12" v-if="!isCardioWorkout(editForm.workout)">
+                                        <input type="text" v-model="editForm.reps" class="form-control form-control-sm" placeholder="횟수/세트 입력">
+                                    </div>
+
                                     <div class="col-12"><input type="text" v-model="editForm.memo" class="form-control form-control-sm" placeholder="메모"></div>
-                                    <div class="col-12 text-end mt-1">
+                                    <div class="col-12 text-end mt-2">
                                         <button @click="saveRecordEdit" class="btn btn-sm btn-success fw-bold me-1 px-3">저장</button>
                                         <button @click="cancelEdit" class="btn btn-sm btn-secondary fw-bold px-3">취소</button>
                                     </div>
@@ -224,7 +228,9 @@
                                 <td class="text-secondary fw-bold">{{ r.date.substring(5) }}</td>
                                 <td class="fw-bold fs-6">{{ r.workout }}</td>
                                 <td>
-                                    <div><span v-if="r.duration" class="fw-bold text-accent">⏱️ {{r.duration}}분</span> <span v-if="r.reps" class="fw-bold ms-1 text-primary">🔄 {{r.reps}}</span></div>
+                                    <!-- 입력된 값만 화면에 표시 -->
+                                    <div v-if="isCardioWorkout(r.workout) && r.duration"><span class="fw-bold text-info">⏱️ {{r.duration}}분</span></div>
+                                    <div v-if="!isCardioWorkout(r.workout) && r.reps"><span class="fw-bold text-accent">🔄 {{r.reps}}</span></div>
                                     <div v-if="r.memo" class="text-secondary small mt-1">{{ r.memo }}</div>
                                 </td>
                                 <td class="text-center p-1" style="white-space: nowrap;">
@@ -267,9 +273,9 @@
 
 <script>
 // =========================================================================
-// 🚨 여기에 새로 발급받은(혹은 기존의) 구글 웹 앱 URL을 붙여넣으세요!
+// 🚨 여기에 개인용 계정으로 다시 만든(모든 사용자 배포) 웹 앱 URL을 붙여넣으세요!
 // =========================================================================
-const WEB_APP_URL = "여기에_구글_웹앱_URL을_붙여넣으세요";
+const WEB_APP_URL = "여기에_새로운_개인계정_URL을_붙여넣으세요";
 
 const app = Vue.createApp({
     data() {
@@ -321,11 +327,8 @@ const app = Vue.createApp({
     },
     watch: {
         isDark(newVal) {
-            // 화면 테마 변경
             document.documentElement.setAttribute('data-bs-theme', newVal ? 'dark' : 'light');
-            // 상태표시줄 색상 변경 (다크: 민트, 라이트: 진청록)
             document.getElementById('theme-color-meta').setAttribute('content', newVal ? '#2dd4bf' : '#0d9488');
-            
             if(this.currentTab === 'stats') {
                 this.drawCharts(); 
             }
@@ -339,6 +342,13 @@ const app = Vue.createApp({
             this.currentTab = tab;
             window.scrollTo(0, 0);
             if(tab === 'stats') setTimeout(() => this.drawCharts(), 100);
+        },
+        
+        // 💡 유산소 운동인지 판별하는 기능
+        isCardioWorkout(workoutName) {
+            if(!workoutName) return false;
+            const cardioKeywords = ['조깅', '자전거', '유산소', '런닝', '달리기', '걷기'];
+            return cardioKeywords.some(kw => workoutName.includes(kw));
         },
         
         startTimer() {
@@ -393,7 +403,6 @@ const app = Vue.createApp({
 
                     let loadedRoutine = this.parseSheetData(res.routine);
                     if(loadedRoutine.length > 0) {
-                        // 과거 버전(칸 1개) 호환성 처리
                         if(loadedRoutine[0].morning !== undefined) {
                             this.routineData = loadedRoutine.map(r => ({
                                 day: r.day, morning1: r.morning, morning2: '휴식', evening1: r.evening, evening2: '휴식'
@@ -409,18 +418,33 @@ const app = Vue.createApp({
             this.isLoading = false;
         },
         
-        // 🚨 루틴표 즉시 저장 (최대 2개 항목)
-        saveRoutine() {
+        // 🚨 루틴표 수동 저장 기능
+        async saveRoutine() {
+            this.isLoading = true;
             const headers = ["day", "morning1", "morning2", "evening1", "evening2"];
             const dataToSave = [headers, ...this.routineData.map(r => [r.day, r.morning1, r.morning2, r.evening1, r.evening2])];
-            fetch(WEB_APP_URL, {
-                method: 'POST', headers: {'Content-Type': 'text/plain'},
-                body: JSON.stringify({action: 'overwrite_sheet', sheet_name: 'routine', data: dataToSave})
-            });
+            try {
+                await fetch(WEB_APP_URL, {
+                    method: 'POST', headers: {'Content-Type': 'text/plain'},
+                    body: JSON.stringify({action: 'overwrite_sheet', sheet_name: 'routine', data: dataToSave})
+                });
+                alert('루틴표가 구글 시트에 안전하게 저장되었습니다!');
+            } catch(e) {
+                alert('저장 실패: 모든 사용자 배포 설정을 확인해주세요.');
+            }
+            this.isLoading = false;
         },
         
         async submitRecord() {
             if(!this.form.workout) return alert('운동 종목을 선택하세요.');
+            
+            // 저장 직전에 불필요한 입력값 지워주기 (오류 방지)
+            if (this.isCardioWorkout(this.form.workout)) {
+                this.form.reps = ''; 
+            } else {
+                this.form.duration = '';
+            }
+
             this.isLoading = true;
             const payload = {
                 action: 'add_record',
@@ -437,11 +461,10 @@ const app = Vue.createApp({
                     this.resetTimer();
                     await this.fetchData();
                 } else {
-                    // 구글 시트 내부 권한/이름 문제일 때 에러 상세표시
-                    alert('저장 실패: ' + res.error + '\n(구글 시트에 records 탭이 존재하는지 확인하세요!)');
+                    alert('저장 실패: ' + res.error);
                 }
             } catch(e) { 
-                alert('통신 오류: 스크립트 배포가 "모든 사용자"로 되어있는지 확인하세요.\n(' + e.message + ')'); 
+                alert('통신 오류: "모든 사용자(Anyone)"로 배포되었는지 꼭 확인해주세요!\n(에러: ' + e.message + ')'); 
             }
             this.isLoading = false;
         },
@@ -455,6 +478,14 @@ const app = Vue.createApp({
         },
         async saveRecordEdit() {
             if(!confirm('수정한 내용을 저장하시겠습니까?')) return;
+            
+            // 수정 시에도 불필요한 값 제거
+            if (this.isCardioWorkout(this.editForm.workout)) {
+                this.editForm.reps = ''; 
+            } else {
+                this.editForm.duration = '';
+            }
+
             this.isLoading = true;
             const idx = this.records.findIndex(r => r.id === this.editingRecordId);
             if(idx > -1) {
