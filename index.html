@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>운동 기록 앱</title>
+    <!-- 🚨 상단 상태표시줄 색상 (라이트/다크 동적 변경) -->
+    <meta name="theme-color" id="theme-color-meta" content="#2dd4bf">
+    
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2964/2964514.png">
     <link rel="icon" type="image/png" sizes="192x192" href="https://cdn-icons-png.flaticon.com/512/2964/2964514.png">
     <meta name="mobile-web-app-capable" content="yes">
@@ -13,7 +16,6 @@
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
     
     <style>
-        /* 🎨 다크/라이트 모드 테마 변수 (청록/블루 계열로 변경) */
         :root {
             --app-bg: #f3f4f6; 
             --nav-bg: #ffffff; 
@@ -37,7 +39,6 @@
             --input-border: #444444;
         }
 
-        /* 📱 모바일 가시성 최적화 CSS */
         body { background-color: var(--app-bg); color: var(--text-main); font-family: 'Pretendard', sans-serif; padding-bottom: 80px; padding-top: 15px; transition: background-color 0.3s, color 0.3s; }
         .card { border-radius: 15px; border: none; background-color: var(--card-bg); box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; transition: 0.3s; }
         .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background-color: var(--nav-bg); display: flex; z-index: 1000; padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid var(--table-border); transition: 0.3s;}
@@ -49,12 +50,12 @@
         .timer-display { font-size: 3.5rem; font-weight: 800; font-family: 'Courier New', Courier, monospace; color: var(--text-accent); letter-spacing: -1px; }
         
         .table { color: var(--text-main); }
-        .routine-table th, .routine-table td { text-align: center; vertical-align: middle; padding: 12px 5px; border-color: var(--table-border); font-size: 15px;}
+        .routine-table th, .routine-table td { text-align: center; vertical-align: middle; padding: 10px 5px; border-color: var(--table-border); font-size: 14px;}
         
         .form-control, .form-select { background-color: var(--input-bg); color: var(--text-main); border: 1px solid var(--input-border); border-radius: 10px; font-size: 16px; padding: 10px 12px; transition: 0.3s; }
         .form-control:focus, .form-select:focus { background-color: var(--input-bg); color: var(--text-main); border-color: var(--text-accent); box-shadow: 0 0 0 0.2rem rgba(45, 212, 191, 0.25); }
         
-        .routine-select { background-color: transparent; border: 1px solid var(--input-border); color: var(--text-main); font-size: 14px; padding: 6px; text-align: center; font-weight: bold; border-radius: 8px;}
+        .routine-select { background-color: transparent; border: 1px solid var(--input-border); color: var(--text-main); font-size: 13.5px; padding: 4px; text-align: center; font-weight: bold; border-radius: 6px; margin-bottom: 4px;}
         .routine-select:focus { background-color: var(--input-bg); }
 
         .loading-screen { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -81,7 +82,7 @@
     <div v-show="currentTab === 'routine'">
         <div class="card p-3">
             <h5 class="fw-bold mb-3">🗓️ 1주일 운동 루틴</h5>
-            <div class="alert small mb-3 py-2 fw-bold" :class="isDark ? 'alert-dark' : 'alert-info'">💡 각 칸을 눌러 운동을 선택하면 즉시 자동 저장됩니다.</div>
+            <div class="alert small mb-3 py-2 fw-bold" :class="isDark ? 'alert-dark' : 'alert-info'">💡 각 칸마다 최대 2개씩 운동을 고를 수 있습니다.</div>
             
             <div class="table-responsive">
                 <table class="table table-bordered routine-table">
@@ -96,15 +97,27 @@
                         <tr v-for="(rt, index) in routineData" :key="index">
                             <td class="fw-bold" :class="{'text-danger': rt.day==='일', 'text-info': rt.day==='토'}">{{ rt.day }}</td>
                             <td>
-                                <select v-model="rt.morning" @change="saveRoutine" class="form-select routine-select w-100">
+                                <!-- 아침 1번 운동 -->
+                                <select v-model="rt.morning1" @change="saveRoutine" class="form-select routine-select w-100">
                                     <option v-for="w in workoutList" :value="w">{{w}}</option>
-                                    <option value="휴식" class="text-secondary">휴식</option>
+                                    <option value="휴식" class="text-secondary">휴식(없음)</option>
+                                </select>
+                                <!-- 아침 2번 운동 -->
+                                <select v-model="rt.morning2" @change="saveRoutine" class="form-select routine-select w-100 mb-0">
+                                    <option v-for="w in workoutList" :value="w">{{w}}</option>
+                                    <option value="휴식" class="text-secondary">휴식(없음)</option>
                                 </select>
                             </td>
                             <td>
-                                <select v-model="rt.evening" @change="saveRoutine" class="form-select routine-select w-100">
+                                <!-- 저녁 1번 운동 -->
+                                <select v-model="rt.evening1" @change="saveRoutine" class="form-select routine-select w-100">
                                     <option v-for="w in workoutList" :value="w">{{w}}</option>
-                                    <option value="휴식" class="text-secondary">휴식</option>
+                                    <option value="휴식" class="text-secondary">휴식(없음)</option>
+                                </select>
+                                <!-- 저녁 2번 운동 -->
+                                <select v-model="rt.evening2" @change="saveRoutine" class="form-select routine-select w-100 mb-0">
+                                    <option v-for="w in workoutList" :value="w">{{w}}</option>
+                                    <option value="휴식" class="text-secondary">휴식(없음)</option>
                                 </select>
                             </td>
                         </tr>
@@ -238,7 +251,7 @@
             
             <textarea v-model="settingsWorkoutText" class="form-control mb-4 fs-5" rows="10" placeholder="슬로우 조깅&#10;스쿼트&#10;신디..."></textarea>
             
-            <button @click="saveSettings" class="btn btn-primary w-100 fs-5 py-3 fw-bold rounded-3 shadow-sm">💾 운동 목록 영구 저장</button>
+            <button @click="saveSettings" class="btn w-100 fs-5 py-3 fw-bold rounded-3 shadow-sm text-white" style="background-color: var(--text-accent);">💾 운동 목록 영구 저장</button>
         </div>
     </div>
 
@@ -254,9 +267,9 @@
 
 <script>
 // =========================================================================
-// 🚨 앱스 스크립트 연결 주소
+// 🚨 여기에 새로 발급받은(혹은 기존의) 구글 웹 앱 URL을 붙여넣으세요!
 // =========================================================================
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxEWDpDN8wApIJlRf_SzoJUS2dI-Dh9RGHXjQuSQcCcXFh9ivaH16ydHyXIjoLZXLg/exec";
+const WEB_APP_URL = "여기에_구글_웹앱_URL을_붙여넣으세요";
 
 const app = Vue.createApp({
     data() {
@@ -266,16 +279,15 @@ const app = Vue.createApp({
             currentTab: 'record',
             records: [],
             
-            // 💡 데이터가 불러와지기 전에도 빈 화면이 뜨지 않도록 미리 채워두는 든든한 기본값!
             workoutList: ['슬로우 조깅', '스쿼트', '신디', '실내자전거', '슬로우 버피'],
             routineData: [
-                { day: '월', morning: '슬로우 조깅', evening: '신디' },
-                { day: '화', morning: '스쿼트', evening: '실내자전거' },
-                { day: '수', morning: '슬로우 조깅', evening: '슬로우 조깅' },
-                { day: '목', morning: '스쿼트', evening: '신디' },
-                { day: '금', morning: '슬로우 조깅', evening: '실내자전거' },
-                { day: '토', morning: '휴식', evening: '휴식' },
-                { day: '일', morning: '휴식', evening: '휴식' }
+                { day: '월', morning1: '슬로우 조깅', morning2: '휴식', evening1: '신디', evening2: '휴식' },
+                { day: '화', morning1: '스쿼트', morning2: '휴식', evening1: '실내자전거', evening2: '휴식' },
+                { day: '수', morning1: '슬로우 조깅', morning2: '휴식', evening1: '슬로우 조깅', evening2: '휴식' },
+                { day: '목', morning1: '스쿼트', morning2: '휴식', evening1: '신디', evening2: '휴식' },
+                { day: '금', morning1: '슬로우 조깅', morning2: '휴식', evening1: '실내자전거', evening2: '휴식' },
+                { day: '토', morning1: '휴식', morning2: '휴식', evening1: '휴식', evening2: '휴식' },
+                { day: '일', morning1: '휴식', morning2: '휴식', evening1: '휴식', evening2: '휴식' }
             ],
             
             timerRunning: false,
@@ -287,7 +299,6 @@ const app = Vue.createApp({
                 workout: '', duration: '', reps: '', memo: ''
             },
             
-            // 상세내역 수정용 변수 추가
             editingRecordId: null,
             editForm: {},
 
@@ -310,7 +321,11 @@ const app = Vue.createApp({
     },
     watch: {
         isDark(newVal) {
+            // 화면 테마 변경
             document.documentElement.setAttribute('data-bs-theme', newVal ? 'dark' : 'light');
+            // 상태표시줄 색상 변경 (다크: 민트, 라이트: 진청록)
+            document.getElementById('theme-color-meta').setAttribute('content', newVal ? '#2dd4bf' : '#0d9488');
+            
             if(this.currentTab === 'stats') {
                 this.drawCharts(); 
             }
@@ -359,7 +374,6 @@ const app = Vue.createApp({
         },
         async fetchData() {
             this.isLoading = true;
-            // 로딩 중에도 텍스트 에리어에 기본값 채워놓기
             this.settingsWorkoutText = this.workoutList.join('\n');
             
             try {
@@ -379,7 +393,14 @@ const app = Vue.createApp({
 
                     let loadedRoutine = this.parseSheetData(res.routine);
                     if(loadedRoutine.length > 0) {
-                        this.routineData = loadedRoutine;
+                        // 과거 버전(칸 1개) 호환성 처리
+                        if(loadedRoutine[0].morning !== undefined) {
+                            this.routineData = loadedRoutine.map(r => ({
+                                day: r.day, morning1: r.morning, morning2: '휴식', evening1: r.evening, evening2: '휴식'
+                            }));
+                        } else {
+                            this.routineData = loadedRoutine;
+                        }
                     }
                 }
             } catch(e) { 
@@ -388,10 +409,10 @@ const app = Vue.createApp({
             this.isLoading = false;
         },
         
-        // 🚨 루틴표 변경 시 즉시 구글 시트로 백그라운드 저장
+        // 🚨 루틴표 즉시 저장 (최대 2개 항목)
         saveRoutine() {
-            const headers = ["day", "morning", "evening"];
-            const dataToSave = [headers, ...this.routineData.map(r => [r.day, r.morning, r.evening])];
+            const headers = ["day", "morning1", "morning2", "evening1", "evening2"];
+            const dataToSave = [headers, ...this.routineData.map(r => [r.day, r.morning1, r.morning2, r.evening1, r.evening2])];
             fetch(WEB_APP_URL, {
                 method: 'POST', headers: {'Content-Type': 'text/plain'},
                 body: JSON.stringify({action: 'overwrite_sheet', sheet_name: 'routine', data: dataToSave})
@@ -407,16 +428,24 @@ const app = Vue.createApp({
                 duration: this.form.duration, reps: this.form.reps, memo: this.form.memo
             };
             try {
-                await fetch(WEB_APP_URL, { method: 'POST', headers: {'Content-Type': 'text/plain'}, body: JSON.stringify(payload) });
-                alert('오운완! 기록이 완벽하게 저장되었습니다. 🔥');
-                this.form.duration = ''; this.form.reps = ''; this.form.memo = '';
-                this.resetTimer();
-                await this.fetchData();
-            } catch(e) { alert('오류가 발생했습니다.'); }
+                const response = await fetch(WEB_APP_URL, { method: 'POST', headers: {'Content-Type': 'text/plain'}, body: JSON.stringify(payload) });
+                const res = await response.json();
+                
+                if(res.success) {
+                    alert('오운완! 기록이 완벽하게 저장되었습니다. 🔥');
+                    this.form.duration = ''; this.form.reps = ''; this.form.memo = '';
+                    this.resetTimer();
+                    await this.fetchData();
+                } else {
+                    // 구글 시트 내부 권한/이름 문제일 때 에러 상세표시
+                    alert('저장 실패: ' + res.error + '\n(구글 시트에 records 탭이 존재하는지 확인하세요!)');
+                }
+            } catch(e) { 
+                alert('통신 오류: 스크립트 배포가 "모든 사용자"로 되어있는지 확인하세요.\n(' + e.message + ')'); 
+            }
             this.isLoading = false;
         },
 
-        // ✏️ 상세내역 수정 기능 추가
         startEdit(record) {
             this.editingRecordId = record.id;
             this.editForm = { ...record };
@@ -505,14 +534,14 @@ const app = Vue.createApp({
                         cardioTraces.push({
                             x: dates.map(d => d.substring(5)), y: yValues, name: w, type: 'bar',
                             text: yValues.map(v => v > 0 ? v+'분' : ''), textposition: 'auto',
-                            marker: { color: '#3b82f6' }, // 파란색 (시간용)
+                            marker: { color: '#3b82f6' }, 
                             yaxis: 'y1' 
                         });
                     } else {
                         strengthTraces.push({
                             x: dates.map(d => d.substring(5)), y: yValues, name: w, type: 'bar',
                             text: yValues.map(v => v > 0 ? v+'회' : ''), textposition: 'auto',
-                            marker: { color: this.isDark ? '#2dd4bf' : '#0d9488' }, // 청록/틸색 (횟수용)
+                            marker: { color: this.isDark ? '#2dd4bf' : '#0d9488' }, 
                             yaxis: 'y2' 
                         });
                     }
@@ -534,6 +563,7 @@ const app = Vue.createApp({
     },
     mounted() {
         document.documentElement.setAttribute('data-bs-theme', this.isDark ? 'dark' : 'light');
+        document.getElementById('theme-color-meta').setAttribute('content', this.isDark ? '#2dd4bf' : '#0d9488');
         this.fetchData();
     }
 });
