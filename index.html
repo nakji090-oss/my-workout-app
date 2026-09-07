@@ -171,15 +171,19 @@
     <!-- 3. 성장기록 탭 -->
     <div v-show="currentTab === 'stats'">
         <div class="card p-4">
-            <h5 class="fw-bold mb-4">📈 나의 주간 성장 그래프</h5>
-            <div class="alert small mb-3 py-2 fw-bold" :class="isDark ? 'alert-dark' : 'alert-info'">💡 최근 4주간(월~일 기준)의 운동량을 합산합니다. <b>(그래프 고정됨)</b></div>
+            <h5 class="fw-bold mb-3">📈 나의 주간 성장 그래프</h5>
+            <div class="alert small mb-3 py-2 fw-bold" :class="isDark ? 'alert-dark' : 'alert-info'">💡 보고 싶은 운동을 선택하면, 최근 4주간(월~일 기준)의 성장 추이를 맞춤형으로 보여줍니다.</div>
             
-            <!-- 🚨 차트 2개로 완전히 분리 -->
-            <h6 class="fw-bold text-info mt-4 mb-2">🏃 유산소 총합 (시간/분)</h6>
-            <div id="cardioChart" style="height: 220px; margin-bottom: 20px;"></div>
+            <!-- 🚨 종목 선택 드롭다운 (아이디어 1 적용) -->
+            <select v-model="selectedStatWorkout" @change="drawCharts" class="form-select fs-6 mb-4 fw-bold" style="color: var(--text-accent); border-color: var(--text-accent);">
+                <option value="전체 유산소">🏃 전체 유산소 (시간 합산)</option>
+                <optgroup label="💪 개별 종목 기록보기">
+                    <option v-for="w in workoutList" :value="w">{{ w }}</option>
+                </optgroup>
+            </select>
             
-            <h6 class="fw-bold text-accent mt-4 mb-2">💪 근력 총합 (횟수/개)</h6>
-            <div id="strengthChart" style="height: 220px; margin-bottom: 20px;"></div>
+            <!-- 🚨 통합된 단일 차트 영역 -->
+            <div id="workoutChart" style="height: 280px; margin-bottom: 20px;"></div>
             
             <hr class="border-secondary my-4">
             
@@ -220,7 +224,6 @@
                             </td>
 
                             <template v-else>
-                                <!-- 날짜 짧게 포맷팅 적용 -->
                                 <td class="text-secondary fw-bold text-center" style="font-size: 13px;">{{ formatShortDate(r.date) }}</td>
                                 <td class="fw-bold fs-6">{{ r.workout }}</td>
                                 <td>
@@ -267,9 +270,6 @@
 </div>
 
 <script>
-// =========================================================================
-// 🚨 선생님의 완벽하게 뚫린 구글 스크립트 웹 앱 URL 적용 완료!
-// =========================================================================
 const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxEWDpDN8wApIJlRf_SzoJUS2dI-Dh9RGHXjQuSQcCcXFh9ivaH16ydHyXIjoLZXLg/exec";
 
 const app = Vue.createApp({
@@ -279,6 +279,9 @@ const app = Vue.createApp({
             isDark: true, 
             currentTab: 'record',
             records: [],
+            
+            // 🚨 차트 종목 선택용 변수 추가
+            selectedStatWorkout: '전체 유산소',
             
             workoutList: ['슬로우 조깅', '스쿼트', '신디', '실내자전거', '슬로우 버피'],
             routineData: [
@@ -338,18 +341,14 @@ const app = Vue.createApp({
             window.scrollTo(0, 0);
             if(tab === 'stats') setTimeout(() => this.drawCharts(), 100);
         },
-        
-        // 💡 구글 시트의 날짜 문자열 시차/타임존 완벽 해결 로직
         formatShortDate(dateStr) {
             if(!dateStr) return '';
-            // JS Date 객체로 변환하여 로컬 시간대 반영
             let d = new Date(dateStr);
             if(!isNaN(d)) {
                 return `${d.getMonth()+1}/${d.getDate()}`;
             }
             return dateStr;
         },
-        
         isCardioWorkout(workoutName) {
             if(!workoutName) return false;
             const cardioKeywords = ['조깅', '자전거', '유산소', '런닝', '달리기', '걷기'];
@@ -550,65 +549,74 @@ const app = Vue.createApp({
                 
                 let wEnd = new Date(wStart);
                 wEnd.setDate(wStart.getDate() + 6);
-                wEnd.setHours(23, 59, 59, 999); // 일요일 밤 11:59:59 까지 커버
+                wEnd.setHours(23, 59, 59, 999);
                 
                 let label = `${wStart.getMonth()+1}/${wStart.getDate()}~${wEnd.getMonth()+1}/${wEnd.getDate()}`;
-                weeks.push({ label: label, start: wStart, end: wEnd, cardioTotal: 0, strengthTotal: 0 });
+                weeks.push({ label: label, start: wStart, end: wEnd });
             }
 
-            // 시차 오류를 완벽하게 방지하는 날짜 매칭 로직
-            this.records.forEach(r => {
-                if(!r.date) return;
-                let rDate = new Date(r.date); 
-                rDate.setHours(0,0,0,0); 
+            // 🚨 선택한 운동에 따라 데이터 분기 처리 (아이디어 1)
+            let yValues = [];
+            let isCardioView = false;
+            let unitLabel = '';
+            let barColor = '';
+
+            if (this.selectedStatWorkout === '전체 유산소') {
+                isCardioView = true;
+                unitLabel = '분';
+                barColor = '#3b82f6'; // 파란색
                 
-                let weekInfo = weeks.find(w => rDate >= w.start && rDate <= w.end);
-                if (weekInfo) {
-                    if (this.isCardioWorkout(r.workout)) {
-                        weekInfo.cardioTotal += Number(r.duration || 0);
-                    } else {
-                        let repStr = String(r.reps || '0').replace(/[^0-9]/g, '');
-                        weekInfo.strengthTotal += (parseInt(repStr) || 0);
-                    }
-                }
-            });
+                yValues = weeks.map(w => {
+                    return this.records.filter(r => {
+                        let rDate = new Date(r.date); rDate.setHours(0,0,0,0);
+                        return rDate >= w.start && rDate <= w.end && this.isCardioWorkout(r.workout);
+                    }).reduce((sum, r) => sum + Number(r.duration || 0), 0);
+                });
+            } else {
+                let isCardio = this.isCardioWorkout(this.selectedStatWorkout);
+                isCardioView = isCardio;
+                unitLabel = isCardio ? '분' : '회';
+                barColor = isCardio ? '#3b82f6' : (this.isDark ? '#2dd4bf' : '#0d9488'); // 유산소면 파랑, 근력이면 청록
+                
+                yValues = weeks.map(w => {
+                    return this.records.filter(r => {
+                        let rDate = new Date(r.date); rDate.setHours(0,0,0,0);
+                        return rDate >= w.start && rDate <= w.end && r.workout === this.selectedStatWorkout;
+                    }).reduce((sum, r) => {
+                        if (isCardio) {
+                            return sum + Number(r.duration || 0);
+                        } else {
+                            let repStr = String(r.reps || '0').replace(/[^0-9]/g, '');
+                            return sum + (parseInt(repStr) || 0);
+                        }
+                    }, 0);
+                });
+            }
 
-            let xLabels = weeks.map(w => w.label);
-            let cardioData = weeks.map(w => w.cardioTotal);
-            let strengthData = weeks.map(w => w.strengthTotal);
-
-            // 1. 유산소 그래프 (확대/축소 방지용 fixedrange 추가)
-            let cardioTrace = {
-                x: xLabels, y: cardioData, type: 'bar',
-                text: cardioData.map(v => v > 0 ? v+'분' : ''), textposition: 'auto',
-                marker: { color: '#3b82f6' }
+            let trace = {
+                x: weeks.map(w => w.label), 
+                y: yValues, 
+                type: 'bar',
+                text: yValues.map(v => v > 0 ? v + unitLabel : ''), 
+                textposition: 'auto',
+                marker: { color: barColor }
             };
             
-            let cardioLayout = {
-                margin: {t:10, b:30, l:30, r:10},
+            let layout = {
+                margin: {t:20, b:30, l:45, r:10},
                 paper_bgcolor: bgColor, plot_bgcolor: bgColor,
                 xaxis: { tickfont: {color: fontColor, weight: 'bold'}, fixedrange: true },
-                yaxis: { tickfont: {color: '#3b82f6', weight: 'bold'}, gridcolor: gridColor, fixedrange: true }
+                yaxis: { 
+                    title: isCardioView ? '시간(분)' : '횟수(개/R)', 
+                    titlefont: {color: barColor, weight:'bold'}, 
+                    tickfont: {color: barColor, weight:'bold'}, 
+                    gridcolor: gridColor, 
+                    fixedrange: true 
+                },
+                dragmode: false
             };
             
-            Plotly.newPlot('cardioChart', [cardioTrace], cardioLayout, {displayModeBar: false});
-
-            // 2. 근력 그래프 (확대/축소 방지용 fixedrange 추가)
-            let strengthColor = this.isDark ? '#2dd4bf' : '#0d9488';
-            let strengthTrace = {
-                x: xLabels, y: strengthData, type: 'bar',
-                text: strengthData.map(v => v > 0 ? v+'회' : ''), textposition: 'auto',
-                marker: { color: strengthColor }
-            };
-            
-            let strengthLayout = {
-                margin: {t:10, b:30, l:40, r:10},
-                paper_bgcolor: bgColor, plot_bgcolor: bgColor,
-                xaxis: { tickfont: {color: fontColor, weight: 'bold'}, fixedrange: true },
-                yaxis: { tickfont: {color: strengthColor, weight: 'bold'}, gridcolor: gridColor, fixedrange: true }
-            };
-
-            Plotly.newPlot('strengthChart', [strengthTrace], strengthLayout, {displayModeBar: false});
+            Plotly.newPlot('workoutChart', [trace], layout, {displayModeBar: false});
         }
     },
     mounted() {
