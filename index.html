@@ -110,8 +110,6 @@
                     </tbody>
                 </table>
             </div>
-            
-            <!-- 🚨 루틴표 수동 저장 버튼 추가 -->
             <div class="mt-3 text-end">
                 <button @click="saveRoutine" class="btn btn-primary w-100 py-3 fs-5 rounded-3 shadow-sm fw-bold">💾 루틴표 저장하기</button>
             </div>
@@ -120,7 +118,6 @@
 
     <!-- 2. 기록 탭 -->
     <div v-show="currentTab === 'record'">
-        <!-- 타이머 (유산소 운동 시 특히 유용) -->
         <div class="card p-4 text-center">
             <h6 class="fw-bold text-secondary mb-0">⏱️ 워크아웃 스톱워치</h6>
             <div class="timer-display my-2">{{ formattedTime }}</div>
@@ -148,7 +145,6 @@
                         </select>
                     </div>
 
-                    <!-- 🔥 유산소 운동을 골랐을 때만 나타나는 구역 (전체 폭 사용) -->
                     <div class="col-12 mb-2" v-if="form.workout && isCardioWorkout(form.workout)">
                         <label class="form-label text-secondary small fw-bold">수행 시간 (분)</label>
                         <div class="input-group">
@@ -157,7 +153,6 @@
                         </div>
                     </div>
 
-                    <!-- 🔥 근력/무산소 운동을 골랐을 때만 나타나는 구역 (전체 폭 사용) -->
                     <div class="col-12 mb-2" v-if="form.workout && !isCardioWorkout(form.workout)">
                         <label class="form-label text-secondary small fw-bold">횟수 / 라운드 / 세트</label>
                         <input type="text" v-model="form.reps" class="form-control fw-bold" placeholder="몇 개 하셨나요? (예: 100개, 5R)" required>
@@ -177,21 +172,23 @@
     <div v-show="currentTab === 'stats'">
         <div class="card p-4">
             <h5 class="fw-bold mb-4">📈 나의 주간 성장 그래프</h5>
-            <div class="alert small mb-3 py-2 fw-bold" :class="isDark ? 'alert-dark' : 'alert-info'">💡 유산소는 '시간(왼쪽)', 근력/WOD는 '횟수(오른쪽)'로 자동 분석합니다.</div>
+            <div class="alert small mb-3 py-2 fw-bold" :class="isDark ? 'alert-dark' : 'alert-info'">💡 최근 4주간(월~일 기준)의 유산소(시간)와 근력(횟수) 운동량을 누적하여 보여줍니다.</div>
             
+            <!-- 주간 누적 그래프 영역 -->
             <div id="workoutChart" style="height: 320px; margin-bottom: 20px;"></div>
             
             <hr class="border-secondary my-4">
             
             <h5 class="fw-bold mb-3">📝 일자별 상세 내역</h5>
             <div class="table-responsive">
+                <!-- 테이블 날짜 열 크기를 줄이고 내용 크기를 늘림 -->
                 <table class="table table-hover align-middle" style="font-size: 14px;">
                     <thead class="bg-body-tertiary">
-                        <tr class="text-accent fw-bold">
-                            <th width="22%" class="py-3">날짜</th>
-                            <th width="33%">종목</th>
-                            <th width="30%">시간/횟수</th>
-                            <th width="15%" class="text-center">관리</th>
+                        <tr class="text-accent fw-bold text-center">
+                            <th width="12%" class="py-3">날짜</th>
+                            <th width="38%">종목</th>
+                            <th width="35%">시간/횟수</th>
+                            <th width="15%">관리</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -206,15 +203,12 @@
                                             <option v-for="w in workoutList" :value="w">{{w}}</option>
                                         </select>
                                     </div>
-                                    
-                                    <!-- 수정 시에도 운동 종류에 맞춰 하나만 보이게 처리 -->
                                     <div class="col-12" v-if="isCardioWorkout(editForm.workout)">
                                         <input type="number" v-model="editForm.duration" class="form-control form-control-sm" placeholder="수행 시간(분)">
                                     </div>
                                     <div class="col-12" v-if="!isCardioWorkout(editForm.workout)">
                                         <input type="text" v-model="editForm.reps" class="form-control form-control-sm" placeholder="횟수/세트 입력">
                                     </div>
-
                                     <div class="col-12"><input type="text" v-model="editForm.memo" class="form-control form-control-sm" placeholder="메모"></div>
                                     <div class="col-12 text-end mt-2">
                                         <button @click="saveRecordEdit" class="btn btn-sm btn-success fw-bold me-1 px-3">저장</button>
@@ -223,12 +217,11 @@
                                 </div>
                             </td>
 
-                            <!-- 📋 일반 목록 보기 -->
+                            <!-- 📋 일반 목록 보기 (날짜 포맷 축소됨) -->
                             <template v-else>
-                                <td class="text-secondary fw-bold">{{ r.date.substring(5) }}</td>
+                                <td class="text-secondary fw-bold text-center" style="font-size: 13px;">{{ formatShortDate(r.date) }}</td>
                                 <td class="fw-bold fs-6">{{ r.workout }}</td>
                                 <td>
-                                    <!-- 입력된 값만 화면에 표시 -->
                                     <div v-if="isCardioWorkout(r.workout) && r.duration"><span class="fw-bold text-info">⏱️ {{r.duration}}분</span></div>
                                     <div v-if="!isCardioWorkout(r.workout) && r.reps"><span class="fw-bold text-accent">🔄 {{r.reps}}</span></div>
                                     <div v-if="r.memo" class="text-secondary small mt-1">{{ r.memo }}</div>
@@ -273,15 +266,15 @@
 
 <script>
 // =========================================================================
-// 🚨 여기에 개인용 계정으로 다시 만든(모든 사용자 배포) 웹 앱 URL을 붙여넣으세요!
+// 🚨 앱스 스크립트 연결 주소
 // =========================================================================
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxMzB72IK9luyuFNvNdeDvd8CCzbxgYH5TfGkmnyUqSQJtXXR00DBC2nuMcFh88emY/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxEWDpDN8wApIJlRf_SzoJUS2dI-Dh9RGHXjQuSQcCcXFh9ivaH16ydHyXIjoLZXLg/exec";
 
 const app = Vue.createApp({
     data() {
         return {
             isLoading: true,
-            isDark: true, // 기본 다크모드
+            isDark: true, 
             currentTab: 'record',
             records: [],
             
@@ -343,8 +336,16 @@ const app = Vue.createApp({
             window.scrollTo(0, 0);
             if(tab === 'stats') setTimeout(() => this.drawCharts(), 100);
         },
+        // 표 날짜를 짧게 9/7 형태로 변환하는 함수
+        formatShortDate(dateStr) {
+            if(!dateStr) return '';
+            let parts = String(dateStr).split('-');
+            if(parts.length === 3) {
+                return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
+            }
+            return dateStr;
+        },
         
-        // 💡 유산소 운동인지 판별하는 기능
         isCardioWorkout(workoutName) {
             if(!workoutName) return false;
             const cardioKeywords = ['조깅', '자전거', '유산소', '런닝', '달리기', '걷기'];
@@ -403,12 +404,12 @@ const app = Vue.createApp({
 
                     let loadedRoutine = this.parseSheetData(res.routine);
                     if(loadedRoutine.length > 0) {
-                        if(loadedRoutine[0].morning !== undefined) {
+                        if(loadedRoutine[0].morning1 !== undefined) {
+                            this.routineData = loadedRoutine;
+                        } else if(loadedRoutine[0].morning !== undefined) {
                             this.routineData = loadedRoutine.map(r => ({
                                 day: r.day, morning1: r.morning, morning2: '휴식', evening1: r.evening, evening2: '휴식'
                             }));
-                        } else {
-                            this.routineData = loadedRoutine;
                         }
                     }
                 }
@@ -418,7 +419,6 @@ const app = Vue.createApp({
             this.isLoading = false;
         },
         
-        // 🚨 루틴표 수동 저장 기능
         async saveRoutine() {
             this.isLoading = true;
             const headers = ["day", "morning1", "morning2", "evening1", "evening2"];
@@ -430,7 +430,7 @@ const app = Vue.createApp({
                 });
                 alert('루틴표가 구글 시트에 안전하게 저장되었습니다!');
             } catch(e) {
-                alert('저장 실패: 모든 사용자 배포 설정을 확인해주세요.');
+                alert('저장 실패: 오류가 발생했습니다.');
             }
             this.isLoading = false;
         },
@@ -438,7 +438,6 @@ const app = Vue.createApp({
         async submitRecord() {
             if(!this.form.workout) return alert('운동 종목을 선택하세요.');
             
-            // 저장 직전에 불필요한 입력값 지워주기 (오류 방지)
             if (this.isCardioWorkout(this.form.workout)) {
                 this.form.reps = ''; 
             } else {
@@ -464,7 +463,7 @@ const app = Vue.createApp({
                     alert('저장 실패: ' + res.error);
                 }
             } catch(e) { 
-                alert('통신 오류: "모든 사용자(Anyone)"로 배포되었는지 꼭 확인해주세요!\n(에러: ' + e.message + ')'); 
+                alert('통신 오류: 구글 앱스 스크립트 권한을 확인해주세요.'); 
             }
             this.isLoading = false;
         },
@@ -479,7 +478,6 @@ const app = Vue.createApp({
         async saveRecordEdit() {
             if(!confirm('수정한 내용을 저장하시겠습니까?')) return;
             
-            // 수정 시에도 불필요한 값 제거
             if (this.isCardioWorkout(this.editForm.workout)) {
                 this.editForm.reps = ''; 
             } else {
@@ -534,50 +532,71 @@ const app = Vue.createApp({
             const gridColor = this.isDark ? '#333333' : '#e5e7eb';
             const bgColor = 'transparent';
 
-            let dates = [];
-            for(let i=6; i>=0; i--) {
-                let d = new Date(); d.setDate(d.getDate()-i);
-                dates.push(d.toISOString().split('T')[0]);
+            // 1. 최근 4주차 날짜 구간(월~일) 구하기
+            let weeks = [];
+            let today = new Date();
+            today.setHours(0,0,0,0);
+            
+            // 오늘을 기준으로 '이번 주 월요일' 찾기
+            let currentDay = today.getDay() || 7; 
+            let thisMonday = new Date(today);
+            thisMonday.setDate(today.getDate() - currentDay + 1);
+
+            for (let i = 3; i >= 0; i--) {
+                let wStart = new Date(thisMonday);
+                wStart.setDate(thisMonday.getDate() - (i * 7));
+                
+                let wEnd = new Date(wStart);
+                wEnd.setDate(wStart.getDate() + 6);
+                
+                let label = `${wStart.getMonth()+1}/${wStart.getDate()}~${wEnd.getMonth()+1}/${wEnd.getDate()}`;
+                weeks.push({ label: label, start: wStart, end: wEnd, cardioTotal: 0, strengthTotal: 0 });
             }
-            
-            const cardioKeywords = ['조깅', '자전거', '유산소', '런닝', '달리기', '걷기'];
-            
-            let cardioTraces = [];
-            let strengthTraces = [];
-            
-            this.workoutList.forEach(w => {
-                let isCardio = cardioKeywords.some(kw => w.includes(kw));
+
+            // 2. 주차별 기록 누적 합산 (유산소 vs 근력)
+            this.records.forEach(r => {
+                if(!r.date) return;
+                let parts = String(r.date).split('-');
+                let rDate = new Date(parts[0], parts[1]-1, parts[2]);
+                rDate.setHours(0,0,0,0);
                 
-                let yValues = dates.map(d => {
-                    let recs = this.records.filter(r => r.date === d && r.workout === w);
-                    if (isCardio) {
-                        return recs.reduce((sum, r) => sum + Number(r.duration || 0), 0); 
+                let weekInfo = weeks.find(w => rDate >= w.start && rDate <= w.end);
+                if (weekInfo) {
+                    if (this.isCardioWorkout(r.workout)) {
+                        weekInfo.cardioTotal += Number(r.duration || 0);
                     } else {
-                        return recs.reduce((sum, r) => {
-                            let repStr = String(r.reps || '0').replace(/[^0-9]/g, '');
-                            return sum + (parseInt(repStr) || 0);
-                        }, 0);
-                    }
-                });
-                
-                if (yValues.some(v => v > 0)) {
-                    if (isCardio) {
-                        cardioTraces.push({
-                            x: dates.map(d => d.substring(5)), y: yValues, name: w, type: 'bar',
-                            text: yValues.map(v => v > 0 ? v+'분' : ''), textposition: 'auto',
-                            marker: { color: '#3b82f6' }, 
-                            yaxis: 'y1' 
-                        });
-                    } else {
-                        strengthTraces.push({
-                            x: dates.map(d => d.substring(5)), y: yValues, name: w, type: 'bar',
-                            text: yValues.map(v => v > 0 ? v+'회' : ''), textposition: 'auto',
-                            marker: { color: this.isDark ? '#2dd4bf' : '#0d9488' }, 
-                            yaxis: 'y2' 
-                        });
+                        let repStr = String(r.reps || '0').replace(/[^0-9]/g, '');
+                        weekInfo.strengthTotal += (parseInt(repStr) || 0);
                     }
                 }
             });
+
+            // 3. 차트용 데이터 배열 추출
+            let xLabels = weeks.map(w => w.label);
+            let cardioData = weeks.map(w => w.cardioTotal);
+            let strengthData = weeks.map(w => w.strengthTotal);
+
+            let traces = [];
+
+            // 유산소 총합 막대 (파란색, 왼쪽 축)
+            if (cardioData.some(v => v > 0)) {
+                traces.push({
+                    x: xLabels, y: cardioData, name: '🏃 유산소 총합(시간)', type: 'bar',
+                    text: cardioData.map(v => v > 0 ? v+'분' : ''), textposition: 'auto',
+                    marker: { color: '#3b82f6' }, 
+                    yaxis: 'y1' 
+                });
+            }
+
+            // 근력 총합 막대 (청록색, 오른쪽 축)
+            if (strengthData.some(v => v > 0)) {
+                traces.push({
+                    x: xLabels, y: strengthData, name: '💪 근력 총합(횟수)', type: 'bar',
+                    text: strengthData.map(v => v > 0 ? v+'회' : ''), textposition: 'auto',
+                    marker: { color: this.isDark ? '#2dd4bf' : '#0d9488' }, 
+                    yaxis: 'y2' 
+                });
+            }
             
             let layout = {
                 barmode: 'group',
@@ -586,10 +605,15 @@ const app = Vue.createApp({
                 legend: {orientation: 'h', y: -0.2, font: {color: fontColor, weight: 'bold'}},
                 xaxis: { tickfont: {color: fontColor, weight: 'bold'} },
                 yaxis: { title: '시간(분)', titlefont: {color:'#3b82f6', weight:'bold'}, tickfont: {color: '#3b82f6', weight:'bold'}, gridcolor: gridColor, side: 'left' },
-                yaxis2: { title: '횟수(개/R)', titlefont: {color: this.isDark ? '#2dd4bf' : '#0d9488', weight:'bold'}, tickfont: {color: this.isDark ? '#2dd4bf' : '#0d9488', weight:'bold'}, overlaying: 'y', side: 'right', gridcolor: 'rgba(0,0,0,0)' }
+                yaxis2: { title: '횟수(개)', titlefont: {color: this.isDark ? '#2dd4bf' : '#0d9488', weight:'bold'}, tickfont: {color: this.isDark ? '#2dd4bf' : '#0d9488', weight:'bold'}, overlaying: 'y', side: 'right', gridcolor: 'rgba(0,0,0,0)' }
             };
             
-            Plotly.newPlot('workoutChart', [...cardioTraces, ...strengthTraces], layout, {displayModeBar: false});
+            // 데이터가 아예 없을 경우 빈 화면 방지용 메시지
+            if(traces.length === 0) {
+                Plotly.newPlot('workoutChart', [{x:[], y:[], type:'bar'}], layout, {displayModeBar: false});
+            } else {
+                Plotly.newPlot('workoutChart', traces, layout, {displayModeBar: false});
+            }
         }
     },
     mounted() {
