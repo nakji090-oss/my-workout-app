@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="ko" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>운동 기록 앱</title>
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2964/2964514.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="https://cdn-icons-png.flaticon.com/512/2964/2964514.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="manifest.json">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    
+    <style>
+        :root {
+            --app-bg: #121212; --nav-bg: #1e1e1e; --card-bg: #1e1e1e;
+            --text-main: #f8f9fa; --text-accent: #f97316; /* 오렌지색 포인트 */
+            --nav-active-bg: #2d2d2d; --table-header: #212529;
+        }
+        body { background-color: var(--app-bg); color: var(--text-main); font-family: 'Pretendard', sans-serif; padding-bottom: 80px; padding-top: 15px; }
+        .card { border-radius: 15px; border: none; background-color: var(--card-bg); box-shadow: 0 4px 12px rgba(0,0,0,0.2); margin-bottom: 20px; }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background-color: var(--nav-bg); display: flex; z-index: 1000; padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid #333;}
+        .nav-item { flex: 1; text-align: center; padding: 12px 0; font-size: 12px; font-weight: 700; color: #888; cursor: pointer; }
+        .nav-item.active { color: var(--text-accent); border-top: 3px solid var(--text-accent); background-color: var(--nav-active-bg); }
+        .btn-primary { background-color: var(--text-accent); border: none; color: #fff; font-weight: bold; }
+        .btn-primary:hover { background-color: #ea580c; }
+        .timer-display { font-size: 4rem; font-weight: 800; font-family: 'Courier New', Courier, monospace; color: var(--text-accent); letter-spacing: -2px; }
+        .routine-table th, .routine-table td { text-align: center; vertical-align: middle; padding: 12px 5px; border-color: #333; }
+        .form-control, .form-select { background-color: #2d2d2d; color: #fff; border: 1px solid #444; border-radius: 10px; }
+        .form-control:focus, .form-select:focus { background-color: #333; color: #fff; border-color: var(--text-accent); box-shadow: none; }
+        .loading-screen { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    </style>
+</head>
+<body>
+<div id="app" class="container-fluid" style="max-width: 800px;">
+    
+    <div v-if="isLoading" class="loading-screen">
+        <div class="spinner-border text-warning" style="width: 3rem; height: 3rem;"></div>
+        <h5 class="mt-3 fw-bold text-warning">데이터 동기화 중...</h5>
+    </div>
+
+    <h3 class="fw-bold mb-3 px-2">🔥 피트니스 다이어리</h3>
+
+    <!-- 1. 루틴 탭 -->
+    <div v-show="currentTab === 'routine'">
+        <div class="card p-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0">🗓️ 주간 운동 루틴</h5>
+                <button @click="toggleRoutineEdit" class="btn btn-sm btn-outline-warning fw-bold">
+                    {{ isEditingRoutine ? '💾 저장' : '✏️ 편집' }}
+                </button>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-dark table-bordered routine-table" style="font-size: 14px;">
+                    <thead>
+                        <tr class="text-warning">
+                            <th width="15%">요일</th>
+                            <th width="42%">☀️ 아침</th>
+                            <th width="43%">🌙 저녁</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(rt, index) in routineData" :key="index">
+                            <td class="fw-bold fs-6">{{ rt.day }}</td>
+                            <td>
+                                <select v-if="isEditingRoutine" v-model="rt.morning" class="form-select form-select-sm">
+                                    <option v-for="w in workoutList" :value="w">{{w}}</option>
+                                    <option value="휴식">휴식</option>
+                                </select>
+                                <span v-else :class="{'text-muted': rt.morning==='휴식'}">{{ rt.morning }}</span>
+                            </td>
+                            <td>
+                                <select v-if="isEditingRoutine" v-model="rt.evening" class="form-select form-select-sm">
+                                    <option v-for="w in workoutList" :value="w">{{w}}</option>
+                                    <option value="휴식">휴식</option>
+                                </select>
+                                <span v-else :class="{'text-muted': rt.evening==='휴식'}">{{ rt.evening }}</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="alert alert-dark small mt-2 py-2">💡 편집을 눌러 내 생활 패턴에 맞게 루틴을 수정하세요.</div>
+        </div>
+    </div>
+
+    <!-- 2. 기록 탭 (타이머 + 폼) -->
+    <div v-show="currentTab === 'record'">
+        <!-- 타이머 영역 -->
+        <div class="card p-4 text-center">
+            <h6 class="fw-bold text-muted mb-0">⏱️ 워크아웃 스톱워치</h6>
+            <div class="timer-display my-2">{{ formattedTime }}</div>
+            <div class="d-flex justify-content-center gap-2">
+                <button @click="startTimer" class="btn btn-success fw-bold px-4">시작</button>
+                <button @click="pauseTimer" class="btn btn-secondary fw-bold px-3">정지</button>
+                <button @click="resetTimer" class="btn btn-danger fw-bold px-3">초기화</button>
+            </div>
+        </div>
+
+        <!-- 기록 입력 폼 -->
+        <div class="card p-4">
+            <h5 class="fw-bold mb-4">💪 오늘 운동 기록하기</h5>
+            <form @submit.prevent="submitRecord">
+                <div class="mb-3">
+                    <label class="form-label text-muted small fw-bold">날짜</label>
+                    <input type="date" v-model="form.date" class="form-control" required>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-12 mb-3">
+                        <label class="form-label text-muted small fw-bold">어떤 운동을 하셨나요?</label>
+                        <select v-model="form.workout" class="form-select fs-5 py-2" required>
+                            <option value="">운동 선택</option>
+                            <option v-for="w in workoutList" :value="w">{{ w }}</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted small fw-bold">수행 시간 (분)</label>
+                        <div class="input-group">
+                            <input type="number" v-model="form.duration" class="form-control" placeholder="예: 20">
+                            <!-- 타이머 시간 바로 가져오기 버튼 -->
+                            <button type="button" @click="copyTimerToDuration" class="btn btn-outline-warning px-2" title="타이머 시간 가져오기">⏱️</button>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted small fw-bold">횟수 / 라운드 세트</label>
+                        <input type="text" v-model="form.reps" class="form-control" placeholder="예: 100개, 5R">
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label text-muted small fw-bold">메모 / 컨디션</label>
+                    <input type="text" v-model="form.memo" class="form-control" placeholder="예: 오늘은 컨디션이 좋음">
+                </div>
+                <button type="submit" class="btn btn-primary w-100 py-3 fs-5">💾 운동 기록 저장하기</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 3. 통계 및 상세 내역 탭 -->
+    <div v-show="currentTab === 'stats'">
+        <div class="card p-4">
+            <h5 class="fw-bold mb-4">📈 나의 운동 성장 그래프</h5>
+            
+            <ul class="nav nav-pills nav-fill mb-3" style="font-size: 13px;">
+                <li class="nav-item me-1">
+                    <a class="nav-link" :class="{active: chartType==='time', 'bg-warning': chartType==='time'}" @click.prevent="setChartType('time')" href="#">운동 시간 추이</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" :class="{active: chartType==='type', 'bg-warning': chartType==='type'}" @click.prevent="setChartType('type')" href="#">운동 비중</a>
+                </li>
+            </ul>
+            
+            <div id="workoutChart" style="height: 280px; margin-bottom: 20px;"></div>
+            
+            <hr class="border-secondary my-4">
+            
+            <h5 class="fw-bold mb-3">📝 일자별 상세 내역</h5>
+            <div class="table-responsive">
+                <table class="table table-dark table-hover align-middle" style="font-size: 13px;">
+                    <thead>
+                        <tr class="text-warning">
+                            <th width="20%">날짜</th>
+                            <th width="35%">운동 종목</th>
+                            <th width="30%">상세 (시간/횟수)</th>
+                            <th width="15%" class="text-center">삭제</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="r in sortedRecords" :key="r.id">
+                            <td class="text-muted">{{ r.date.substring(5) }}</td>
+                            <td class="fw-bold text-light">{{ r.workout }}</td>
+                            <td>
+                                <div><span v-if="r.duration">⏱️ {{r.duration}}분</span> <span v-if="r.reps">🔄 {{r.reps}}</span></div>
+                                <div v-if="r.memo" class="text-muted small mt-1">{{ r.memo }}</div>
+                            </td>
+                            <td class="text-center">
+                                <button @click="deleteRecord(r.id)" class="btn btn-sm btn-outline-danger px-2 py-0">🗑️</button>
+                            </td>
+                        </tr>
+                        <tr v-if="sortedRecords.length === 0">
+                            <td colspan="4" class="text-center text-muted py-4">기록된 운동이 없습니다.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. 설정 탭 -->
+    <div v-show="currentTab === 'settings'">
+        <div class="card p-4">
+            <h5 class="fw-bold mb-4">⚙️ 운동 종목 관리</h5>
+            <div class="alert alert-dark small">💡 나만의 운동 종목을 각 줄에 하나씩 입력하고 저장하세요.</div>
+            
+            <textarea v-model="settingsWorkoutText" class="form-control mb-4" rows="10" placeholder="슬로우 조깅&#10;스쿼트&#10;신디..."></textarea>
+            
+            <button @click="saveSettings" class="btn btn-outline-warning w-100 fs-5 py-3 fw-bold">💾 운동 목록 저장</button>
+        </div>
+    </div>
+
+    <!-- 하단 네비게이션 -->
+    <div class="bottom-nav">
+        <div class="nav-item" :class="{active: currentTab === 'routine'}" @click="changeTab('routine')">🗓️ 루틴표</div>
+        <div class="nav-item" :class="{active: currentTab === 'record'}" @click="changeTab('record')">⏱️ 기록하기</div>
+        <div class="nav-item" :class="{active: currentTab === 'stats'}" @click="changeTab('stats')">📊 성장기록</div>
+        <div class="nav-item" :class="{active: currentTab === 'settings'}" @click="changeTab('settings')">⚙️ 설정</div>
+    </div>
+
+</div>
+
+<script>
+// =========================================================================
+// 🚨 여기에 방금 새로 발급받은 '운동용 구글 앱스 스크립트 웹 앱 URL'을 붙여넣으세요!
+// =========================================================================
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxEWDpDN8wApIJlRf_SzoJUS2dI-Dh9RGHXjQuSQcCcXFh9ivaH16ydHyXIjoLZXLg/exec";
+
+const app = Vue.createApp({
+    data() {
+        return {
+            isLoading: true,
+            currentTab: 'record',
+            chartType: 'time',
+            records: [],
+            workoutList: [],
+            
+            // 타이머 변수
+            timerRunning: false,
+            timerTime: 0,
+            timerInterval: null,
+            
+            // 루틴 변수
+            isEditingRoutine: false,
+            routineData: [],
+            defaultRoutine: [
+                { day: '월', morning: '슬로우 조깅', evening: '신디' },
+                { day: '화', morning: '스쿼트', evening: '실내자전거' },
+                { day: '수', morning: '슬로우 조깅', evening: '슬로우 조깅' },
+                { day: '목', morning: '스쿼트', evening: '신디' },
+                { day: '금', morning: '슬로우 조깅', evening: '실내자전거' },
+                { day: '토', morning: '휴식', evening: '휴식' },
+                { day: '일', morning: '휴식', evening: '휴식' }
+            ],
+            defaultWorkouts: ['슬로우 조깅', '스쿼트', '신디', '실내자전거', '슬로우 버피'],
+
+            form: {
+                date: new Date().toISOString().split('T')[0],
+                workout: '', duration: '', reps: '', memo: ''
+            },
+            
+            settingsWorkoutText: ''
+        }
+    },
+    computed: {
+        formattedTime() {
+            let totalSeconds = Math.floor(this.timerTime / 1000);
+            let m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+            let s = (totalSeconds % 60).toString().padStart(2, '0');
+            let ms = Math.floor((this.timerTime % 1000) / 10).toString().padStart(2, '0');
+            return `${m}:${s}.${ms}`;
+        },
+        sortedRecords() {
+            let sorted = [...this.records];
+            sorted.sort((a,b) => String(b.date).localeCompare(String(a.date)) || b.id - a.id);
+            return sorted;
+        }
+    },
+    methods: {
+        changeTab(tab) {
+            this.currentTab = tab;
+            window.scrollTo(0, 0);
+            if(tab === 'stats') setTimeout(() => this.drawCharts(), 100);
+        },
+        setChartType(type) {
+            this.chartType = type;
+            this.drawCharts();
+        },
+        
+        // --- 타이머 기능 ---
+        startTimer() {
+            if(!this.timerRunning) {
+                const startTime = Date.now() - this.timerTime;
+                this.timerInterval = setInterval(() => {
+                    this.timerTime = Date.now() - startTime;
+                }, 10);
+                this.timerRunning = true;
+            }
+        },
+        pauseTimer() {
+            clearInterval(this.timerInterval);
+            this.timerRunning = false;
+        },
+        resetTimer() {
+            this.pauseTimer();
+            this.timerTime = 0;
+        },
+        copyTimerToDuration() {
+            this.form.duration = Math.floor(this.timerTime / 60000); // 분 단위 복사
+            if(this.form.duration === 0) this.form.duration = 1; // 1분 미만은 1분으로 처리
+        },
+
+        // --- 데이터 통신 기능 ---
+        parseSheetData(data) {
+            if(!data || data.length < 2) return [];
+            const headers = data[0];
+            return data.slice(1).map(row => {
+                let obj = {};
+                headers.forEach((h, i) => obj[h] = row[i]);
+                return obj;
+            });
+        },
+        async fetchData() {
+            this.isLoading = true;
+            try {
+                const response = await fetch(WEB_APP_URL, {
+                    method: 'POST', headers: {'Content-Type': 'text/plain'},
+                    body: JSON.stringify({action: 'get_all'})
+                });
+                const res = await response.json();
+                if(res.success) {
+                    this.records = this.parseSheetData(res.records);
+                    
+                    let loadedSettings = this.parseSheetData(res.settings);
+                    this.workoutList = loadedSettings.length > 0 ? loadedSettings.map(s => s.name) : this.defaultWorkouts;
+                    this.settingsWorkoutText = this.workoutList.join('\n');
+
+                    let loadedRoutine = this.parseSheetData(res.routine);
+                    this.routineData = loadedRoutine.length > 0 ? loadedRoutine : JSON.parse(JSON.stringify(this.defaultRoutine));
+                }
+            } catch(e) { console.log('데이터 로드 실패'); }
+            this.isLoading = false;
+        },
+        
+        async submitRecord() {
+            if(!this.form.workout) return alert('운동 종목을 선택하세요.');
+            this.isLoading = true;
+            const payload = {
+                action: 'add_record',
+                date: this.form.date, workout: this.form.workout,
+                duration: this.form.duration, reps: this.form.reps, memo: this.form.memo
+            };
+            try {
+                await fetch(WEB_APP_URL, { method: 'POST', headers: {'Content-Type': 'text/plain'}, body: JSON.stringify(payload) });
+                alert('운동 기록이 저장되었습니다! 오운완! 🔥');
+                this.form.duration = ''; this.form.reps = ''; this.form.memo = '';
+                this.resetTimer();
+                await this.fetchData();
+            } catch(e) { alert('오류가 발생했습니다.'); }
+            this.isLoading = false;
+        },
+
+        async deleteRecord(id) {
+            if(!confirm('이기록을 삭제할까요?')) return;
+            this.isLoading = true;
+            this.records = this.records.filter(r => String(r.id) !== String(id));
+            const headers = ["id", "date", "workout", "duration", "reps", "memo"];
+            const dataToSave = [headers, ...this.records.map(r => [r.id, r.date, r.workout, r.duration, r.reps, r.memo])];
+            await fetch(WEB_APP_URL, {
+                method: 'POST', headers: {'Content-Type': 'text/plain'},
+                body: JSON.stringify({action: 'overwrite_sheet', sheet_name: 'records', data: dataToSave})
+            });
+            await this.fetchData();
+            if(this.currentTab === 'stats') this.drawCharts();
+        },
+
+        async toggleRoutineEdit() {
+            if(this.isEditingRoutine) {
+                this.isLoading = true;
+                const headers = ["day", "morning", "evening"];
+                const dataToSave = [headers, ...this.routineData.map(r => [r.day, r.morning, r.evening])];
+                await fetch(WEB_APP_URL, {
+                    method: 'POST', headers: {'Content-Type': 'text/plain'},
+                    body: JSON.stringify({action: 'overwrite_sheet', sheet_name: 'routine', data: dataToSave})
+                });
+                alert('루틴이 저장되었습니다.');
+                this.isLoading = false;
+            }
+            this.isEditingRoutine = !this.isEditingRoutine;
+        },
+
+        async saveSettings() {
+            this.isLoading = true;
+            const wList = this.settingsWorkoutText.split('\n').map(s=>s.trim()).filter(s=>s);
+            const dataToSave = [["name"], ...wList.map(w => [w])];
+            await fetch(WEB_APP_URL, {
+                method: 'POST', headers: {'Content-Type': 'text/plain'},
+                body: JSON.stringify({action: 'overwrite_sheet', sheet_name: 'settings', data: dataToSave})
+            });
+            alert('운동 목록이 업데이트 되었습니다.');
+            await this.fetchData();
+        },
+
+        drawCharts() {
+            const fontColor = '#e2e8f0';
+            const colors = ['#f97316', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#f43f5e', '#14b8a6'];
+            
+            if(this.chartType === 'type') {
+                let workoutCounts = {};
+                this.records.forEach(r => { workoutCounts[r.workout] = (workoutCounts[r.workout]||0) + 1; });
+                let pieData = [{
+                    values: Object.values(workoutCounts), labels: Object.keys(workoutCounts),
+                    type: 'pie', hole: 0.4, textinfo: 'label+percent',
+                    marker: { colors: colors }, textfont: { color: '#fff' }
+                }];
+                Plotly.newPlot('workoutChart', pieData, { margin: {t:10, b:10, l:10, r:10}, showlegend: false, paper_bgcolor: 'transparent' }, {displayModeBar: false});
+            } else {
+                // 최근 7일 운동 시간 (바 차트)
+                let dates = [];
+                for(let i=6; i>=0; i--) {
+                    let d = new Date(); d.setDate(d.getDate()-i);
+                    dates.push(d.toISOString().split('T')[0]);
+                }
+                let timeData = dates.map(d => {
+                    return this.records.filter(r => r.date === d).reduce((sum, r) => sum + Number(r.duration || 0), 0);
+                });
+                
+                let barData = [{
+                    x: dates.map(d => d.substring(5)), y: timeData, type: 'bar',
+                    text: timeData.map(t => t>0 ? t+'분' : ''), textposition: 'auto',
+                    marker: { color: '#f97316' }, textfont: { weight: 'bold' }
+                }];
+                Plotly.newPlot('workoutChart', barData, {
+                    margin: {t:20, b:30, l:30, r:10}, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+                    xaxis: { tickfont: { color: fontColor } }, yaxis: { tickfont: { color: fontColor }, gridcolor: '#333' }
+                }, {displayModeBar: false});
+            }
+        }
+    },
+    mounted() {
+        this.fetchData();
+    }
+});
+app.mount('#app');
+</script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+</script>
+</body>
+</html>
